@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <!-- [5단계] 확대 제한 해제 (접근성) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>규정 도우미 데모</title>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css" />
+    <!-- [도식화] 라이브러리 : 로딩 실패해도 앱은 정상 동작 (2단계 방어) -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #1f3a5f;
+            --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            --white-glass: rgba(255, 255, 255, 0.95);
+            --ok: #0f7b4f;
+            --warn: #b4690e;
+        }
+        * { box-sizing: border-box; font-family: 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif; -webkit-tap-highlight-color: transparent; }
+
+        /* [5단계] 모바일 키보드 대응: dvh 사용 (미지원 브라우저는 vh로 자동 폴백) */
+        body { margin: 0; padding: 0; background: var(--bg-gradient); height: 100vh; height: 100dvh;
+               display: flex; justify-content: center; align-items: center; overflow: hidden; }
+
+        .app-wrapper {
+            width: 100%; max-width: 480px; height: 100%; background: var(--white-glass);
+            position: relative; overflow: hidden; display: flex; flex-direction: column;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+            transition: max-width 0.4s ease, border-radius 0.4s ease, height 0.4s ease;
+        }
+        @media (min-width: 500px) { .app-wrapper { height: 90vh; height: 90dvh; border-radius: 30px; } }
+
+        /* ===== PC / 태블릿 ===== */
+        @media (min-width: 768px) {
+            .app-wrapper { max-width: none; width: 100%; height: 100vh; height: 100dvh; border-radius: 0; }
+            .chat-area { padding-left: 36px; padding-right: 36px; }
+            /* [5단계] 텍스트는 중앙 컬럼으로 제한해서 가독성 확보 */
+            .msg-row { max-width: 1000px; width: 100%; margin: 0 auto; }
+            .bubble { font-size: 16px; padding: 16px 22px; }
+            .bot .bubble  { max-width: 92%; }
+            .user .bubble { max-width: 65%; }
+            .bot .bubble.has-flow  { max-width: 760px; }
+            .login-title { font-size: 42px; }
+            .login-sub { font-size: 18px; margin-bottom: 50px; }
+            .modern-input { font-size: 18px; padding: 20px 24px; }
+            .btn-start { font-size: 18px; padding: 20px; }
+            .chat-header h3 { font-size: 22px; }
+            .chat-header p { font-size: 14px; }
+            .chat-input { font-size: 16px; height: 50px; }
+            .btn-send { width: 50px; height: 50px; font-size: 20px; }
+            .quick-chip { font-size: 14px; padding: 12px 20px; }
+            .quick-replies { gap: 12px; }
+            .admin-body { padding: 24px 36px 40px; }
+            .admin-inner { max-width: 1000px; margin: 0 auto; }
+        }
+
+        /* ===== 휴대폰 : 담당자 버튼은 제목 아래로, DEMO 표시는 띠 문구로 대신 ===== */
+        @media (max-width: 767px) {
+            .chat-header .header-btn:not(.left) { position: static; transform: none; margin-top: 8px; font-size: 12px; padding: 6px 10px; }
+            .chat-header .header-btn.left { top: 14px; transform: none; font-size: 12px; padding: 6px 10px; }
+            #admin-view .chat-header { padding-top: 46px; }
+            .demo-badge { display: none; }
+        }
+
+        @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .screen { width: 100%; height: 100%; display: flex; flex-direction: column; position: absolute; top: 0; left: 0; transition: opacity 0.4s; }
+        #chat-view, #admin-view { display: none; opacity: 0; }
+
+        #login-view { justify-content: center; align-items: center; padding: 40px; z-index: 10; background: rgba(255,255,255,0.9); }
+        .login-title { font-size: 32px; font-weight: 800; color: var(--primary-color); margin-bottom: 10px; letter-spacing: -1px; text-align: center; }
+        .login-sub { font-size: 16px; color: #767676; margin-bottom: 40px; text-align: center; line-height: 1.5; }
+        /* 데모 암호 안내: 처음 온 사람이 놓치지 않게 입력칸 위에 크게 보여 준다 */
+        .login-pw-box { width: 100%; max-width: 420px; margin-bottom: 16px; padding: 14px 18px; background: #FFF6E0; border: 2px solid #FFB300; border-radius: 16px; text-align: center; font-size: 16px; font-weight: 700; color: #6B4E00; }
+        .login-pw-box strong { display: inline-block; margin-left: 8px; padding: 2px 14px; background: #fff; border-radius: 8px; font-size: 22px; letter-spacing: 1px; color: var(--primary-color); }
+        .modern-input { width: 100%; max-width: 420px; padding: 16px 20px; border: 2px solid transparent; background: #F0F2F5; border-radius: 16px; font-size: 16px; outline: none; margin-bottom: 16px; text-align: center; transition: all 0.3s ease; }
+        .modern-input:focus { background: white; border-color: var(--primary-color); }
+        .btn-start { width: 100%; max-width: 420px; padding: 16px; background: var(--primary-color); color: white; border: none; border-radius: 16px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 5px 15px rgba(31, 58, 95, 0.3); transition: transform 0.2s ease; }
+        .btn-start:hover { transform: translateY(-2px); }
+        .login-hint { margin-top: 18px; font-size: 13px; color: #8a93a5; text-align: center; }
+        .login-err { margin-top: 10px; font-size: 13px; color: #c0392b; min-height: 18px; }
+
+        /* 가상 문서 안내 띠 */
+        .notice-strip { background: #fff4e0; color: #8a5a00; font-size: 12px; font-weight: 600; text-align: center; padding: 6px 10px; border-bottom: 1px solid #f0d9a8; }
+
+        .chat-header { padding: 16px 20px; background: rgba(255,255,255,0.9); border-bottom: 1px solid rgba(0,0,0,0.05); text-align: center; z-index: 5; position: relative; }
+        .chat-header h3 { margin: 0; color: var(--primary-color); font-size: 18px; font-weight: 800; }
+        .chat-header p { margin: 5px 0 0 0; font-size: 12px; color: #888; }
+        .header-btn { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: #eef2f7; border: 1px solid #d5dce6; color: var(--primary-color); font-size: 13px; font-weight: 700; padding: 8px 12px; border-radius: 14px; cursor: pointer; }
+        .header-btn .cnt { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 4px; border-radius: 9px; background: #e74c3c; color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
+        .header-btn .cnt.zero { background: #b7c0cc; }
+        .header-btn.left { left: 14px; right: auto; }
+
+        /* padding-bottom 은 JS가 입력영역 높이에 맞춰 자동 계산 (5단계) */
+        .chat-area { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; padding-bottom: 200px; scroll-behavior: smooth; }
+
+        .msg-row { display: flex; flex-direction: column; animation: slideUp 0.3s ease-out; width: 100%; }
+        .bubble { max-width: 85%; padding: 14px 18px; font-size: 15px; line-height: 1.6; position: relative; word-break: keep-all; overflow-wrap: anywhere; }
+        .msg-row.bot { align-items: flex-start; }
+        .bot .bubble { background: white; color: #333; border-radius: 20px 20px 20px 5px; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .msg-row.user { align-items: flex-end; }
+        .user .bubble { background: var(--primary-color); color: white; border-radius: 20px 20px 5px 20px; box-shadow: 0 5px 15px rgba(31, 58, 95, 0.2); }
+        .bot .bubble.has-flow { max-width: 95%; }
+
+        .mermaid { width: 100%; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px; margin: 10px 0; text-align: center; overflow-x: auto; }
+        .mermaid svg { max-width: 100% !important; height: auto !important; }
+        .diagram-pending { background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 12px; margin: 8px 0; color: #64748b; font-size: 13px; text-align: center; }
+        /* 라이브러리 없을 때 대체 표시 (2단계) */
+        .fallback-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px; margin: 10px 0; font-size: 14px; color: #475569; overflow-x: auto; }
+        .fallback-box .fb-title { font-weight: 700; color: var(--primary-color); margin-bottom: 8px; }
+        .fallback-box pre { margin: 0; white-space: pre-wrap; font-size: 12px; color: #64748b; }
+
+        /* 답변 안의 표 */
+        .bubble table { border-collapse: collapse; width: 100%; text-align: center; margin: 6px 0; font-size: 14px; }
+        .bubble th { background-color: #f2f2f2; padding: 8px; border: 1px solid #d9dee5; }
+        .bubble td { padding: 8px; border: 1px solid #d9dee5; }
+
+        /* [데모] 근거 상자 */
+        .src-box { margin-top: 12px; border-left: 4px solid var(--primary-color); background: #f4f7fb; border-radius: 0 12px 12px 0; padding: 10px 14px; font-size: 13.5px; color: #334155; }
+        .src-box .src-title { font-weight: 800; color: var(--primary-color); margin-bottom: 4px; }
+        .src-box .src-quote { color: #475569; }
+        .src-box .src-meta { margin-top: 6px; font-size: 11.5px; color: #8a93a5; }
+        .src-box.staff { border-left-color: var(--ok); background: #eef8f3; }
+        .src-box.staff .src-title { color: var(--ok); }
+        .nomatch { border-left: 4px solid var(--warn); background: #fff7ea; border-radius: 0 12px 12px 0; padding: 10px 14px; margin-top: 10px; font-size: 13.5px; color: #6b4a12; }
+        .art-line { margin: 2px 0; }
+
+        .input-area-wrapper { position: absolute; bottom: 0; width: 100%; padding: 10px 20px 20px 20px; background: linear-gradient(to top, #ffffff 92%, rgba(255,255,255,0)); z-index: 5; }
+        .quick-title { font-size: 12px; font-weight: 700; color: #8a93a5; padding: 2px 4px 8px 4px; display: flex; align-items: center; gap: 6px; justify-content: center; }
+        .quick-title .crumb-cat { color: var(--primary-color); }
+        .quick-replies { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 12px; justify-content: center; max-height: 176px; overflow-y: auto; }
+        .quick-chip { white-space: nowrap; background: white; border: 1px solid var(--primary-color); color: var(--primary-color); padding: 10px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: background 0.2s, color 0.2s; }
+        .quick-chip:hover { background: var(--primary-color); color: white; }
+        .quick-chip.category { background: var(--primary-color); color: white; }
+        .quick-chip.category:hover { background: #142842; }
+        .quick-chip.back { background: #eef0f4; border-color: #cfd5e0; color: #555; font-weight: 700; }
+        .quick-chip.back:hover { background: #dfe3ea; color: #333; }
+        /* [4단계] 준비중 칩 */
+        .quick-chip.pending { background: #f4f6f9; border-color: #dfe3ea; color: #9aa3b2; box-shadow: none; }
+        .quick-chip.pending:hover { background: #e9edf3; color: #7d8797; }
+        /* [데모] 담당자 칩 */
+        .quick-chip.staff { background: #eef8f3; border-color: var(--ok); color: var(--ok); }
+        .quick-chip.staff:hover { background: var(--ok); color: #fff; }
+
+        .input-bar { background: white; border-radius: 30px; box-shadow: 0 5px 25px rgba(0,0,0,0.1); padding: 5px 5px 5px 20px; display: flex; align-items: center; border: 1px solid rgba(0,0,0,0.05); }
+        .chat-input { flex: 1; border: none; outline: none; font-size: 16px; background: transparent; height: 40px; }
+        .chat-input:disabled { background: transparent; color: #aaa; cursor: not-allowed; }
+        .btn-send { width: 40px; height: 40px; background: var(--primary-color); border-radius: 50%; color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; transition: background 0.2s; flex-shrink: 0; }
+        .btn-send:disabled { background: #ccc; cursor: wait; }
+
+        .typing { display: none; padding: 10px 15px; background: white; border-radius: 20px; width: fit-content; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .dot { width: 6px; height: 6px; background: #ccc; border-radius: 50%; display: inline-block; animation: bounce 1.4s infinite ease-in-out both; margin: 0 2px; }
+        .dot:nth-child(1) { animation-delay: -0.32s; } .dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+        .demo-badge { position: absolute; top: 8px; right: 8px; background: #ff9800; color: white; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 10px; z-index: 20; }
+
+        /* ===== [데모] 담당자 화면 ===== */
+        .admin-body { flex: 1; overflow-y: auto; padding: 16px 16px 30px; }
+        .admin-tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+        .admin-tab { border: 1px solid #cfd5e0; background: #fff; color: #555; border-radius: 18px; padding: 8px 14px; font-size: 14px; font-weight: 700; cursor: pointer; }
+        .admin-tab.on { background: var(--primary-color); border-color: var(--primary-color); color: #fff; }
+        .admin-desc { font-size: 13.5px; color: #64748b; margin: 0 0 14px; line-height: 1.6; }
+        .q-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+        .q-meta { display: flex; gap: 8px; align-items: center; font-size: 12px; color: #8a93a5; margin-bottom: 6px; flex-wrap: wrap; }
+        .tag { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 11.5px; font-weight: 700; background: #eef2f7; color: var(--primary-color); }
+        .tag.wait { background: #fff1db; color: var(--warn); }
+        .tag.done { background: #e3f4ec; color: var(--ok); }
+        .q-text { font-size: 16px; font-weight: 700; color: #1f2937; margin-bottom: 10px; }
+        .q-row { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; }
+        .q-row textarea { flex: 1 1 320px; min-height: 64px; border: 1px solid #cfd5e0; border-radius: 12px; padding: 10px 12px; font-size: 14.5px; resize: vertical; outline: none; }
+        .q-row textarea:focus { border-color: var(--primary-color); }
+        .q-side { display: flex; flex-direction: column; gap: 8px; min-width: 140px; }
+        .q-side select { border: 1px solid #cfd5e0; border-radius: 10px; padding: 8px; font-size: 14px; background: #fff; }
+        .btn-save { background: var(--ok); color: #fff; border: none; border-radius: 10px; padding: 10px 12px; font-size: 14px; font-weight: 700; cursor: pointer; }
+        .btn-save:hover { filter: brightness(0.95); }
+        .kb-answer { font-size: 14.5px; color: #334155; background: #f4f7fb; border-radius: 10px; padding: 10px 12px; }
+        .empty { text-align: center; color: #94a3b8; font-size: 14px; padding: 30px 0; }
+        .admin-tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; border-top: 1px solid #e2e8f0; padding-top: 14px; }
+        .btn-tool { background: #eef2f7; border: 1px solid #d5dce6; color: #475569; border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 700; cursor: pointer; }
+        .toast { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); background: #1f2937; color: #fff; padding: 10px 16px; border-radius: 12px; font-size: 13.5px; opacity: 0; transition: opacity 0.3s; z-index: 30; pointer-events: none; }
+        .toast.show { opacity: 0.95; }
+    </style>
+</head>
+<body>
+    <div class="app-wrapper">
+        <div class="demo-badge">DEMO</div>
+
+        <!-- 로그인 화면 -->
+        <div id="login-view" class="screen">
+            <div class="login-title">AI 규정 도우미</div>
+            <div class="login-sub">규정에 있는 답은 근거와 함께,<br>규정에 없는 답은 담당자에게 물어 쌓아 갑니다</div>
+            <div class="login-pw-box">🔑 데모 접속 암호 <strong>aigen</strong></div>
+            <input type="password" id="pw-input" class="modern-input" placeholder="접속 암호 입력 (aigen)" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" onkeypress="if(event.key==='Enter') tryLogin()">
+            <button class="btn-start" onclick="tryLogin()">시작하기 🚀</button>
+            <div class="login-err" id="login-err"></div>
+            <div class="login-hint">가상 예시 문서로 만든 데모입니다 · 대소문자 구분 없음</div>
+        </div>
+
+        <!-- 채팅 화면 -->
+        <div id="chat-view" class="screen">
+            <div class="notice-strip">가상 예시 문서 '예시회사 취업규칙(가상)'으로 답합니다. 실제 회사 규정이 아닙니다.</div>
+            <div class="chat-header">
+                <h3>AI 규정 도우미</h3>
+                <p>🟢 온라인 • 예시회사 취업규칙(가상) 22개 조항</p>
+                <button class="header-btn" onclick="openAdmin()">🔑 담당자 화면<span class="cnt zero" id="inbox-cnt">0</span></button>
+            </div>
+            <div class="chat-area" id="chat-box" aria-live="polite">
+                <div class="msg-row bot">
+                    <div class="bubble">안녕하세요! <strong>AI 규정 도우미</strong>입니다😊<br>규정에 있는 내용은 <strong>근거 조항</strong>과 함께 답하고, 규정에 없는 내용은 지어내지 않고 <strong>담당자에게 물어 두었다가</strong> 다음부터 답해 드려요.<br>아래에서 분야를 고르거나 직접 질문해 주세요.</div>
+                </div>
+                <div class="typing" id="loader">
+                    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                </div>
+            </div>
+            <div class="input-area-wrapper" id="input-area">
+                <div class="quick-title" id="quick-title"></div>
+                <div class="quick-replies" id="quick-replies"></div>
+                <div class="input-bar">
+                    <input type="text" id="user-msg" class="chat-input" placeholder="질문을 입력하세요..." onkeypress="if(event.key==='Enter') sendMsg()">
+                    <button class="btn-send" onclick="sendMsg()" aria-label="전송">↑</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- [데모] 담당자 화면 -->
+        <div id="admin-view" class="screen">
+            <div class="notice-strip">담당자 화면 · 챗봇이 답하지 못한 질문에 한두 줄로 답하면, 다음부터 챗봇이 그 답을 근거와 함께 씁니다.</div>
+            <div class="chat-header">
+                <button class="header-btn left" onclick="closeAdmin()">← 챗봇으로</button>
+                <h3>🔑 담당자 화면</h3>
+                <p>사람 이름 대신 역할만 남깁니다 (예: 총무 담당)</p>
+            </div>
+            <div class="admin-body">
+                <div class="admin-inner">
+                    <div class="admin-tabs">
+                        <button class="admin-tab on" id="tab-inbox" onclick="showTab('inbox')">📮 답 못 한 질문함 <span id="tab-inbox-n">0</span></button>
+                        <button class="admin-tab" id="tab-kb" onclick="showTab('kb')">📚 쌓인 담당자 답 <span id="tab-kb-n">0</span></button>
+                    </div>
+                    <div id="admin-list"></div>
+                    <div class="admin-tools">
+                        <button class="btn-tool" onclick="exportJson()">⬇ 내보내기(JSON)</button>
+                        <button class="btn-tool" onclick="document.getElementById('import-file').click()">⬆ 불러오기(JSON)</button>
+                        <input type="file" id="import-file" accept=".json,application/json" style="display:none" onchange="importJson(this)">
+                        <button class="btn-tool" onclick="resetDemo()">↺ 데모 초기화</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="toast" id="toast"></div>
+    </div>
+
+    <script>
+    /* =========================================================
+       [데모] 규정 데이터 : 예시회사 취업규칙(가상)
+       - 실제 회사 규정이 아니다. 근로기준법 수준의 일반 내용으로 새로 쓴 가상 문서.
+       - table / steps 가 있으면 답변에서 표 / 흐름도로 보여 준다 (원문 그대로).
+       ========================================================= */
+    var DOC_NAME = '예시회사 취업규칙(가상)';
+    var RULES = [
+        { no: '제1조', title: '목적', cat: '총칙', text: '이 규칙은 예시회사 직원의 근로조건과 복무에 관한 사항을 정함을 목적으로 한다.' },
+        { no: '제2조', title: '적용 범위', cat: '총칙', text: '이 규칙은 회사에 근무하는 모든 직원에게 적용한다. 다만 기간제 직원은 근로계약에서 따로 정할 수 있다.' },
+        { no: '제3조', title: '채용 서류', cat: '인사', text: '신규 입사자는 입사일까지 주민등록등본, 최종학력증명서, 경력증명서(경력자에 한함), 급여 통장 사본을 제출한다.' },
+        { no: '제4조', title: '수습 기간', cat: '인사', text: '① 신규 채용자는 입사일부터 3개월간 수습 기간을 둔다. ② 회사는 수습 기간 중 업무 적격성을 평가하며, 평가 결과에 따라 수습 기간을 1회에 한하여 3개월 이내로 연장할 수 있다. ③ 수습 기간은 근속 기간에 포함한다.' },
+        { no: '제5조', title: '근무 시간', cat: '근태', text: '① 근무 시간은 휴게 시간을 제외하고 1일 8시간, 1주 40시간으로 한다. ② 시업 시각은 오전 9시, 종업 시각은 오후 6시로 한다. ③ 휴게 시간은 낮 12시부터 오후 1시까지로 한다.' },
+        { no: '제6조', title: '지각, 조퇴, 외출', cat: '근태', text: '① 직원이 지각, 조퇴 또는 외출하려면 미리 소속 부서장의 승인을 받아야 한다. ② 부득이한 사유로 미리 승인을 받지 못한 경우에는 출근 후 지체 없이 부서장에게 사유를 알리고 승인을 받는다. ③ 지각, 조퇴, 외출 시간은 근태 기록에 남긴다.' },
+        { no: '제7조', title: '연장, 야간, 휴일 근로', cat: '근태', text: '① 연장근로는 직원과 합의하여 1주 12시간 한도에서 할 수 있다. ② 연장근로, 야간근로(오후 10시부터 오전 6시까지), 휴일근로에 대하여는 근로기준법에서 정한 바에 따라 가산임금을 지급한다.' },
+        { no: '제8조', title: '휴일', cat: '근태', text: '주휴일은 일요일로 한다. 근로자의 날(5월 1일)과 관공서의 공휴일에 관한 규정에 따른 공휴일 및 대체공휴일은 유급휴일로 한다.' },
+        { no: '제9조', title: '연차유급휴가', cat: '휴가', text: '① 1년간 80% 이상 출근한 직원에게 15일의 연차유급휴가를 준다. ② 계속 근로 기간이 1년 미만이거나 1년간 80% 미만 출근한 직원에게는 1개월 개근 시 1일의 유급휴가를 준다. ③ 3년 이상 계속 근로한 직원에게는 최초 1년을 초과하는 계속 근로 연수 매 2년마다 1일을 가산하며, 가산휴가를 포함한 총 휴가 일수는 25일을 한도로 한다. ④ 연차유급휴가는 직원이 청구한 시기에 주되, 사업 운영에 막대한 지장이 있으면 그 시기를 변경할 수 있다.' },
+        { no: '제10조', title: '경조휴가', cat: '휴가', text: '직원 본인 또는 가족에게 경조사가 있으면 다음 표의 일수만큼 유급 경조휴가를 준다. 경조휴가 일수에는 휴일을 포함하지 않는다.',
+          table: { head: ['경조 사유', '휴가 일수'], rows: [['본인 결혼', '5일'], ['자녀 결혼', '1일'], ['본인 또는 배우자의 부모 사망', '5일'], ['배우자 사망', '5일'], ['조부모 또는 외조부모 사망', '3일'], ['형제자매 사망', '1일']] } },
+        { no: '제11조', title: '병가', cat: '휴가', text: '① 업무 외 질병이나 부상으로 근무할 수 없는 직원은 연간 60일 이내에서 병가를 신청할 수 있다. ② 연속 7일 이상 병가를 쓰려면 의사 진단서를 제출한다.' },
+        { no: '제12조', title: '휴직', cat: '인사', text: '① 직원은 다음 각 호의 경우 휴직을 신청할 수 있다. 1. 업무 외 질병이나 부상으로 3개월 이상 요양이 필요한 경우: 1년 이내 2. 병역 의무를 이행하게 된 경우: 복무 기간 3. 자녀 양육을 위한 육아휴직: 관계 법령에서 정한 기간 4. 그 밖에 회사가 인정하는 사유: 6개월 이내 ② 휴직하려는 직원은 휴직 예정일 30일 전까지 휴직원을 제출한다.',
+          table: { head: ['휴직 사유', '기간'], rows: [['업무 외 질병, 부상으로 3개월 이상 요양 필요', '1년 이내'], ['병역 의무 이행', '복무 기간'], ['자녀 양육(육아휴직)', '관계 법령에서 정한 기간'], ['그 밖에 회사가 인정하는 사유', '6개월 이내']] } },
+        { no: '제13조', title: '복직', cat: '인사', text: '휴직 기간이 끝난 직원은 7일 이내에 복직원을 제출하고 복직한다. 회사는 원칙적으로 휴직 전 업무에 복귀시킨다.' },
+        { no: '제14조', title: '임금의 지급', cat: '급여', text: '임금은 매월 1일부터 말일까지를 산정 기간으로 하여 매월 25일에 직원 명의의 계좌로 지급한다. 지급일이 휴일이면 그 전날 지급한다.' },
+        { no: '제15조', title: '출장비', cat: '경비', text: '① 업무상 출장은 출장 전에 출장 신청서를 제출하여 부서장의 승인을 받는다. ② 출장비는 교통비, 숙박비, 일비로 나누며, 교통비와 숙박비는 실비로, 일비는 국내 출장 1일 2만 원으로 지급한다. ③ 출장을 마친 직원은 복귀 후 7일 이내에 영수증 등 증빙을 첨부하여 출장비 정산서를 제출한다. ④ 회계 담당은 증빙을 확인한 뒤 다음 급여일에 정산 금액을 지급한다.',
+          steps: ['출장 신청서 제출', '부서장 승인', '출장', '복귀 후 7일 이내 정산서와 증빙 제출', '회계 담당 확인', '다음 급여일 지급'] },
+        { no: '제16조', title: '교육', cat: '인사', text: '① 회사는 직원의 직무 능력 향상을 위하여 연간 교육 계획을 세워 시행한다. ② 직원은 회사가 지정한 법정 의무교육(직장 내 성희롱 예방교육, 개인정보 보호교육 등)을 이수하여야 한다.' },
+        { no: '제17조', title: '직장 내 괴롭힘 금지', cat: '인사', text: '① 누구든지 직장에서의 지위 또는 관계 등의 우위를 이용하여 업무상 적정 범위를 넘어 다른 직원에게 신체적, 정신적 고통을 주거나 근무 환경을 악화시켜서는 안 된다. ② 피해 직원이나 이를 알게 된 사람은 인사 담당에게 신고할 수 있으며, 회사는 지체 없이 조사한다.' },
+        { no: '제18조', title: '퇴직', cat: '인사', text: '① 직원이 퇴직하려면 퇴직 희망일 30일 전까지 사직서를 제출한다. ② 퇴직하는 직원은 퇴직일까지 업무 인수인계를 마쳐야 한다.' },
+        { no: '제19조', title: '퇴직급여', cat: '급여', text: '1년 이상 계속 근로한 직원이 퇴직하면 회사가 설정한 퇴직급여제도에 따라 퇴직급여를 지급한다.' },
+        { no: '제20조', title: '정년', cat: '인사', text: '직원의 정년은 만 60세로 하며, 정년에 이른 날이 속하는 달의 말일에 퇴직한다.' },
+        { no: '제21조', title: '안전과 보건', cat: '총칙', text: '① 회사는 직원에게 정기적으로 일반 건강진단을 받게 한다. ② 직원은 회사의 안전, 보건 수칙을 지켜야 한다.' },
+        { no: '제22조', title: '개인정보 보호', cat: '총칙', text: '직원은 업무상 알게 된 개인정보를 업무 목적 외로 이용하거나 외부에 제공해서는 안 된다.' }
+    ];
+
+    /* =========================================================
+       [데모] 찾기 엔진 : 조항 단위 키워드 점수(BM25 방식) - 브라우저 안에서 계산
+       ========================================================= */
+    var RULE_MIN_SCORE = 4.0;     /* 이 점수 미만이면 '규정에 없음' (test-log.md 로 정함) */
+    var RULE_MIN_COVER = 0.5;     /* 질문 핵심어 중 조항에 나온 비율 */
+    var STAFF_MIN_SIM  = 0.5;     /* 담당자 답을 쓸 최소 유사도 */
+
+    /* 동의어 : 질문 쪽 단어를 규정 쪽 단어로 넓힌다 */
+    var SYNONYMS = {
+        '연차': ['연차유급휴가'], '연차휴가': ['연차유급휴가'], '월차': ['유급휴가'],
+        '수습': ['수습'], '시용': ['수습'], '인턴': ['수습'],
+        '지각': ['지각'], '조퇴': ['조퇴'], '외출': ['외출'], '늦': ['지각'],
+        '출장비': ['출장비', '출장'], '여비': ['출장비'], '출장': ['출장'],
+        '경조': ['경조휴가'], '경조사': ['경조휴가'], '결혼': ['결혼'], '상': ['사망'],
+        '월급': ['임금'], '급여': ['임금'], '월급날': ['임금', '지급'], '봉급': ['임금'],
+        '퇴사': ['퇴직', '사직서'], '그만두': ['퇴직', '사직서'], '사직': ['사직서'],
+        '아프': ['병가'], '아파': ['병가'], '병원': ['병가'], '수당': ['가산임금'], '야근': ['연장근로'], '잔업': ['연장근로'],
+        '잡': ['예약'], '예약': ['예약'], '소포': ['택배'], '우편물': ['택배'], '택배': ['택배'],
+        '만들': ['신청'], '맞추': ['신청'], '손님': ['방문객'], '방문자': ['방문객'], '차': ['차량'],
+        '세우': ['주차'], '대': ['주차']
+    };
+    var STOP = ['알려줘','알려주세요','알려','어떻게','어디서','어디','어디로','누구','누구한테','무엇','뭐','뭔가요','어떤','언제',
+                '경우','며칠','몇','얼마나','얼마','회사','회사로','오는','온','오','들어오','받','받아','받나','찾','찾아','나오','좀','해야','해요','하나','방법','규정','관련','대해','궁금',
+                '있나','수','할','하는','하면','되나','되','것','건가','처리','하','주','합니다','드려','에','저','제','우리'];
+    var JOSA = ['으로는','에서는','에게서','이에요','인가요','되나요','하나요','있나요','받나요','하려면','으려면','려면','해야','에서','에게','한테','하면','해서','되면','이면','으면',
+                '으로','이나','라도','부터','까지','은','는','이','가','을','를','에','의','도','로','와','과','나','요','죠'];
+
+    function stripJosa(tk) {
+        var changed = true;
+        while (changed) {
+            changed = false;
+            for (var i = 0; i < JOSA.length; i++) {
+                var j = JOSA[i];
+                if (tk.length - j.length >= 1 && tk.slice(-j.length) === j) {
+                    var rest = tk.slice(0, -j.length);
+                    if (rest.length >= 1 && !(rest.length === 1 && tk.length <= 2)) { tk = rest; changed = true; break; }
+                }
+            }
+        }
+        return tk;
+    }
+    function words(s) {
+        return String(s).toLowerCase().replace(/[^0-9a-z가-힣\s]/g, ' ').split(/\s+/).filter(Boolean);
+    }
+    function keyWords(s) {
+        var out = [];
+        words(s).forEach(function (w) {
+            var t = stripJosa(w);
+            if (!t || STOP.indexOf(t) >= 0 || STOP.indexOf(w) >= 0) return;
+            out.push(t);
+        });
+        return out;
+    }
+    function bigrams(t) {
+        var g = [];
+        if (t.length < 2) return [t];
+        for (var i = 0; i < t.length - 1; i++) g.push(t.slice(i, i + 2));
+        return g;
+    }
+    function expand(keys) {
+        var out = keys.slice();
+        keys.forEach(function (k) {
+            Object.keys(SYNONYMS).forEach(function (s) {
+                if (k === s || (s.length >= 2 && k.indexOf(s) === 0) || (s.length === 1 && k === s)) {
+                    SYNONYMS[s].forEach(function (x) { if (out.indexOf(x) < 0) out.push(x); });
+                }
+            });
+        });
+        return out;
+    }
+    function termsOf(keys) {
+        var t = [];
+        keys.forEach(function (k) { t.push('w:' + k); bigrams(k).forEach(function (b) { t.push('g:' + b); }); });
+        return t;
+    }
+
+    /* 색인 : 제목은 3번 넣어 무게를 준다 */
+    var INDEX = (function () {
+        var docs = RULES.map(function (r) {
+            var body = (r.title + ' ').repeat(3) + r.text + ' ' +
+                (r.table ? r.table.rows.map(function (x) { return x.join(' '); }).join(' ') : '');
+            var keys = keyWords(body);
+            var terms = termsOf(keys);
+            var tf = {};
+            terms.forEach(function (t) { tf[t] = (tf[t] || 0) + 1; });
+            return { rule: r, tf: tf, len: terms.length, keys: keys, raw: body };
+        });
+        var df = {};
+        docs.forEach(function (d) { Object.keys(d.tf).forEach(function (t) { df[t] = (df[t] || 0) + 1; }); });
+        var avg = docs.reduce(function (a, d) { return a + d.len; }, 0) / docs.length;
+        return { docs: docs, df: df, avg: avg, N: docs.length };
+    })();
+
+    function searchRules(q) {
+        var keys = expand(keyWords(q));
+        var qterms = termsOf(keys);
+        var k1 = 1.2, b = 0.75;
+        var scored = INDEX.docs.map(function (d) {
+            var s = 0;
+            qterms.forEach(function (t) {
+                var f = d.tf[t]; if (!f) return;
+                var n = INDEX.df[t];
+                var idf = Math.log(1 + (INDEX.N - n + 0.5) / (n + 0.5));
+                var w = t.indexOf('w:') === 0 ? 1.5 : 1.0;
+                s += w * idf * (f * (k1 + 1)) / (f + k1 * (1 - b + b * d.len / INDEX.avg));
+            });
+            return { d: d, score: s };
+        }).sort(function (a, b2) { return b2.score - a.score; });
+        /* 질문 핵심어(동의어 제외) 중 조항 원문에 나오는 비율 */
+        var base = keyWords(q);
+        var top = scored[0];
+        var hit = 0;
+        base.forEach(function (k) {
+            var alts = expand([k]);
+            var ok = alts.some(function (a) { return top.d.raw.indexOf(a) >= 0 || (a.length >= 3 && bigrams(a).some(function (g) { return top.d.raw.indexOf(g) >= 0; })); });
+            if (ok) hit++;
+        });
+        var cover = base.length ? hit / base.length : 0;
+        return { top: top, second: scored[1], cover: cover, keys: base };
+    }
+
+    /* 담당자 답과의 유사도 : 핵심어 바이그램 Dice 계수 (동의어로 넓혀서 비교) */
+    function simSet(q) {
+        var set = {};
+        termsOf(expand(keyWords(q))).forEach(function (t) { if (t.indexOf('g:') === 0) set[t] = 1; });
+        return set;
+    }
+    function similarity(a, b) {
+        var A = simSet(a), B = simSet(b);
+        var ka = Object.keys(A), kb = Object.keys(B);
+        if (!ka.length || !kb.length) return 0;
+        var inter = ka.filter(function (t) { return B[t]; }).length;
+        return 2 * inter / (ka.length + kb.length);
+    }
+
+    /* 추정 담당 분야 */
+    var FIELD_HINTS = {
+        '총무': ['회의실','명함','택배','소포','우편','주차','방문','손님','차량','비품','사무용품','출입증','사원증','열쇠','청소','에어컨'],
+        '인사': ['연차','휴가','급여','임금','월급','입사','퇴직','퇴사','수습','휴직','교육','근태','증명서'],
+        '회계': ['경비','법인카드','정산','세금계산서','영수증','지출','출장비'],
+        '전산': ['컴퓨터','노트북','프린터','와이파이','비밀번호','메일','계정','모니터']
+    };
+    function guessField(q) {
+        var best = '미정', n = 0;
+        Object.keys(FIELD_HINTS).forEach(function (f) {
+            var c = FIELD_HINTS[f].filter(function (w) { return q.indexOf(w) >= 0; }).length;
+            if (c > n) { n = c; best = f; }
+        });
+        return best;
+    }
+
+    /* =========================================================
+       [데모] 저장 : 브라우저 localStorage (서버 없음). 막혀 있어도 화면은 돈다.
+       ========================================================= */
+    var LS_INBOX = 'aigenDemo.inbox.v1', LS_KB = 'aigenDemo.kb.v1';
+    var MEM = { inbox: [], kb: [] };
+    function load(key) { try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : []; } catch (e) { return []; } }
+    function save() {
+        try { localStorage.setItem(LS_INBOX, JSON.stringify(MEM.inbox)); localStorage.setItem(LS_KB, JSON.stringify(MEM.kb)); } catch (e) {}
+        refreshCounts();
+    }
+    MEM.inbox = load(LS_INBOX); MEM.kb = load(LS_KB);
+
+    function nowStr() {
+        var d = new Date();
+        function p(n) { return (n < 10 ? '0' : '') + n; }
+        return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+    function dateStr() { return nowStr().slice(0, 10); }
+    function waitingCount() { return MEM.inbox.filter(function (x) { return !x.answered; }).length; }
+    function refreshCounts() {
+        var n = waitingCount();
+        var c = document.getElementById('inbox-cnt');
+        if (c) { c.textContent = n; c.className = 'cnt' + (n ? '' : ' zero'); }
+        var a = document.getElementById('tab-inbox-n'); if (a) a.textContent = n;
+        var k = document.getElementById('tab-kb-n'); if (k) k.textContent = MEM.kb.length;
+    }
+
+    /* =========================================================
+       [데모] 답 만들기 : 지어내지 않는다. 찾은 조항 원문 / 담당자 답만 쓴다.
+       ========================================================= */
+    function escapeText(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+    function splitClauses(text) {
+        var parts = text.split(/(?=[①②③④⑤⑥])/).map(function (s) { return s.trim(); }).filter(Boolean);
+        return parts.length ? parts : [text];
+    }
+    function bestQuote(rule, keys) {
+        var cands = splitClauses(rule.text);
+        var best = cands[0], bs = -1;
+        cands.forEach(function (c) {
+            var s = 0;
+            expand(keys).forEach(function (k) { if (c.indexOf(k) >= 0) s += 2; else if (bigrams(k).some(function (g) { return k.length >= 2 && c.indexOf(g) >= 0; })) s += 1; });
+            if (s > bs) { bs = s; best = c; }
+        });
+        return best.length > 110 ? best.slice(0, 108) + '…' : best;
+    }
+
+    function answerFromRule(res) {
+        var r = res.top.d.rule;
+        var html = '💡 <strong>' + DOC_NAME + ' ' + r.no + '(' + escapeText(r.title) + ')</strong>에 관련 내용이 있어요.<br><br>';
+        if (r.table) {
+            var pre = r.text.split(/(?=①)|(?=다음 표)|(?=1\. )/)[0];
+            if (r.no === '제10조') html += escapeText(r.text) + '<br>';
+            else if (pre && pre.length < r.text.length) html += escapeText(splitClauses(r.text)[0].replace(/\s*1\..*$/, '')) + '<br>';
+            html += '<table><tr>' + r.table.head.map(function (h) { return '<th>' + escapeText(h) + '</th>'; }).join('') + '</tr>' +
+                    r.table.rows.map(function (row) { return '<tr>' + row.map(function (c) { return '<td>' + escapeText(c) + '</td>'; }).join('') + '</tr>'; }).join('') + '</table>';
+            var tail = splitClauses(r.text).slice(1);
+            if (r.no !== '제10조' && tail.length) html += tail.map(function (c) { return '<div class="art-line">' + escapeText(c) + '</div>'; }).join('');
+        } else {
+            html += splitClauses(r.text).map(function (c) { return '<div class="art-line">' + escapeText(c) + '</div>'; }).join('');
+        }
+        if (r.steps) {
+            html += '<br>📋 <strong>처리 순서</strong>' +
+                '```mermaid\nflowchart LR\n' + r.steps.map(function (s, i) { return 'S' + i + '[' + s + ']'; }).join(' --> ') + '\n```';
+        }
+        html += '<div class="src-box"><div class="src-title">📌 근거: ' + DOC_NAME + ' ' + r.no + '(' + escapeText(r.title) + ')</div>' +
+                '<div class="src-quote">"' + escapeText(bestQuote(r, res.keys)) + '"</div>' +
+                '<div class="src-meta">찾기 점수 ' + res.top.score.toFixed(1) + ' (기준 ' + RULE_MIN_SCORE.toFixed(1) + ' 이상) · 위 내용은 조항 원문만 옮긴 것입니다</div></div>';
+        return html;
+    }
+
+    function answerFromStaff(item, sim) {
+        return '💡 <strong>규정에는 없지만, 담당자가 남긴 답이 있어요.</strong><br><br>' +
+               '<div class="art-line">' + escapeText(item.a).replace(/\n/g, '<br>') + '</div>' +
+               '<div class="src-box staff"><div class="src-title">📌 근거: 담당자 답 (' + escapeText(item.role) + ', ' + escapeText(item.date) + ')</div>' +
+               '<div class="src-quote">처음 들어온 질문: "' + escapeText(item.q) + '"</div>' +
+               '<div class="src-meta">질문 유사도 ' + Math.round(sim * 100) + '% (기준 ' + Math.round(STAFF_MIN_SIM * 100) + '% 이상) · 규정이 바뀌면 담당자 화면에서 다시 확인해 주세요</div></div>';
+    }
+
+    function answerNoMatch(q) {
+        var dup = null;
+        MEM.inbox.forEach(function (x) { if (!x.answered && similarity(x.q, q) >= 0.8) dup = x; });
+        var field = guessField(q);
+        if (!dup) {
+            MEM.inbox.unshift({ id: 'q' + Date.now(), t: nowStr(), q: q, field: field, answered: false });
+            save();
+        }
+        return '🤔 <strong>규정에 없는 내용입니다. 담당자에게 물어 두겠습니다.</strong>' +
+               '<div class="nomatch">📮 이 질문을 <strong>답 못 한 질문함</strong>에 ' + (dup ? '이미 넣어 두었어요' : '저장했어요') +
+               ' (추정 담당: <strong>' + field + '</strong>).<br>담당자가 한두 줄로 답하면, 다음에 같은 질문이 들어올 때 그 답을 근거와 함께 알려 드릴게요.</div>';
+    }
+
+    /* 판단 순서 : 담당자 답(비슷한 질문) → 규정 조항 → 규정에 없음 */
+    function decide(q) {
+        var res = searchRules(q);
+        var bestKb = null, bestSim = 0;
+        MEM.kb.forEach(function (it) { var s = similarity(it.q, q); if (s > bestSim) { bestSim = s; bestKb = it; } });
+        var ruleOk = res.top.score >= RULE_MIN_SCORE && res.cover >= RULE_MIN_COVER;
+        if (bestKb && bestSim >= STAFF_MIN_SIM && (!ruleOk || bestSim >= 0.75)) {
+            return { type: 'staff', html: answerFromStaff(bestKb, bestSim), sim: bestSim, res: res };
+        }
+        if (ruleOk) return { type: 'rule', html: answerFromRule(res), res: res };
+        return { type: 'none', html: answerNoMatch(q), res: res };
+    }
+    window.__decide = decide;   /* 시험용 */
+
+    /* =========================================================
+       [2단계] 외부 라이브러리(CDN) 로딩 방어 : 실패해도 챗봇 본체는 정상 작동
+       ========================================================= */
+    var HAS_MERMAID = (typeof window.mermaid !== 'undefined');
+    if (HAS_MERMAID) {
+        try { mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'strict', themeVariables: { fontFamily: 'Pretendard, sans-serif' } }); }
+        catch (e) { HAS_MERMAID = false; }
+    }
+
+    /* =========================================================
+       [5단계] 입력영역 높이에 맞춰 채팅영역 아래 여백 자동 계산
+       (퀵바가 여러 줄로 늘어나도 마지막 메시지가 가려지지 않음)
+       ========================================================= */
+    function syncChatPadding() {
+        var area = document.getElementById('input-area');
+        var box  = document.getElementById('chat-box');
+        if (!area || !box) return;
+        box.style.paddingBottom = (area.offsetHeight + 24) + 'px';
+    }
+    if (typeof ResizeObserver !== 'undefined') {
+        try { new ResizeObserver(syncChatPadding).observe(document.getElementById('input-area')); } catch (e) {}
+    }
+    var _resizeTimer;
+    window.addEventListener('resize', function () { clearTimeout(_resizeTimer); _resizeTimer = setTimeout(syncChatPadding, 150); });
+
+    /* =========================================================
+       [4단계] 퀵바 데이터
+       ready: false → 준비중 (회색 칩 + 안내 메시지)
+       ========================================================= */
+    var QUICK_MENU = {
+        "인사": { ready: true, items: [
+            { label: "수습 기간", query: "수습 기간은 얼마나 되나요" },
+            { label: "휴직", query: "휴직은 어떤 경우에 할 수 있나요" },
+            { label: "퇴직 절차", query: "퇴사하려면 언제까지 말해야 하나요" },
+            { label: "월급날", query: "월급은 언제 들어오나요" } ] },
+        "휴가·근태": { ready: true, items: [
+            { label: "연차 휴가", query: "연차 휴가는 며칠인가요" },
+            { label: "경조 휴가", query: "경조 휴가는 며칠인가요" },
+            { label: "지각·조퇴", query: "지각이나 조퇴는 어떻게 처리하나요" },
+            { label: "근무 시간", query: "근무 시간은 어떻게 되나요" } ] },
+        "총무": { ready: true, items: [
+            { label: "출장비 정산", query: "출장비는 어떻게 정산하나요" },
+            { label: "명함 신청", query: "명함 신청은 누구에게 하나요" },
+            { label: "회의실 예약", query: "회의실 예약은 어디서 하나요" } ] },
+        "회계": { ready: false, items: [] },
+        "전산": { ready: false, items: [] }
+    };
+
+    var quickWrap  = document.getElementById('quick-replies');
+    var quickTitle = document.getElementById('quick-title');
+
+    function makeChip(text, cls, handler) {
+        var chip = document.createElement('div');
+        chip.className = 'quick-chip' + (cls ? ' ' + cls : '');
+        chip.textContent = text;
+        chip.onclick = handler;
+        return chip;
+    }
+    function renderTopMenu() {
+        quickTitle.innerHTML = '💼 무엇이 궁금하세요? 분야를 선택해 주세요';
+        quickWrap.innerHTML = '';
+        Object.keys(QUICK_MENU).forEach(function (cat) {
+            var info = QUICK_MENU[cat];
+            if (info.ready) quickWrap.appendChild(makeChip(cat, 'category', function () { renderSubMenu(cat); }));
+            else quickWrap.appendChild(makeChip(cat + ' 🚧', 'pending', function () { noticePending(cat); }));
+        });
+        quickWrap.appendChild(makeChip('🔑 담당자 화면', 'staff', openAdmin));
+        syncChatPadding();
+    }
+    function renderSubMenu(cat) {
+        quickTitle.innerHTML = '📂 <span class="crumb-cat">' + cat + '</span> — 항목을 선택해 주세요';
+        quickWrap.innerHTML = '';
+        quickWrap.appendChild(makeChip('← 뒤로', 'back', renderTopMenu));
+        QUICK_MENU[cat].items.forEach(function (item) {
+            if (item.ready === false) quickWrap.appendChild(makeChip(item.label + ' 🚧', 'pending', function () { noticePending(cat, item.label); }));
+            else quickWrap.appendChild(makeChip(item.label, '', function () { sendMsg(item.query); }));
+        });
+        syncChatPadding();
+    }
+    /* [4단계] 준비중 안내 — 질문을 보내지 않고 안내만 출력 */
+    function noticePending(cat, label) {
+        var what = label ? ('<strong>' + cat + ' · ' + label + '</strong>') : ('<strong>' + cat + '</strong> 분야');
+        pushBotBubble('🚧 ' + what + '는 아직 <strong>자료 준비 중</strong>이에요.<br>자료가 등록되는 대로 바로 안내해 드릴게요!<br><br>그동안은 궁금한 내용을 직접 입력해 주세요. 규정에 없으면 담당자에게 물어 둘게요 😊');
+    }
+    function pushBotBubble(html) {
+        var box = document.getElementById('chat-box');
+        var loader = document.getElementById('loader');
+        box.insertBefore(createBubble(html, 'bot'), loader);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    /* 로그인 (데모 암호) */
+    var DEMO_PW = 'aigen';
+    function tryLogin() {
+        // 휴대폰 자동 대문자(Aigen)나 앞뒤 공백 때문에 막히지 않게 소문자로 맞춰 비교한다
+        var pw = document.getElementById('pw-input').value.trim().toLowerCase();
+        if (pw === DEMO_PW) {
+            document.getElementById('login-view').style.opacity = '0';
+            setTimeout(function () {
+                document.getElementById('login-view').style.display = 'none';
+                var chatView = document.getElementById('chat-view');
+                chatView.style.display = 'flex';
+                renderTopMenu();
+                refreshCounts();
+                syncChatPadding();
+                setTimeout(function () { chatView.style.opacity = '1'; }, 50);
+            }, 400);
+        } else {
+            document.getElementById('login-err').textContent = '암호를 확인해 주세요. (데모 암호: aigen)';
+        }
+    }
+
+    /* =========================================================
+       도식화: 코드블록(```mermaid)을 그림으로 렌더 (없으면 글로 대체)
+       ========================================================= */
+    var FENCE_RE = /```(mermaid)\s*([\s\S]*?)```/g;
+    function streamingView(raw) { return raw.replace(/```(mermaid)[\s\S]*?(```|$)/g, '<div class="diagram-pending">📊 도식 생성 중…</div>'); }
+    async function renderRich(container, raw) {
+        container.innerHTML = '';
+        FENCE_RE.lastIndex = 0;
+        if (FENCE_RE.test(raw)) container.classList.add('has-flow');
+        var last = 0, m;
+        FENCE_RE.lastIndex = 0;
+        while ((m = FENCE_RE.exec(raw)) !== null) {
+            if (m.index > last) appendHtml(container, raw.slice(last, m.index));
+            await appendMermaid(container, m[2].trim());
+            last = FENCE_RE.lastIndex;
+        }
+        if (last < raw.length) appendHtml(container, raw.slice(last));
+    }
+    function appendHtml(container, html) {
+        if (!html.trim()) return;
+        var span = document.createElement('span');
+        span.innerHTML = html;
+        container.appendChild(span);
+    }
+    /* [2단계] Mermaid 없으면 코드 원문을 읽기 쉬운 형태로 대체 표시 */
+    async function appendMermaid(container, code) {
+        if (!HAS_MERMAID) {
+            var fb = document.createElement('div');
+            fb.className = 'fallback-box';
+            var steps = [];
+            code.split('\n').forEach(function (line) {
+                var mm = line.match(/\[([^\]]+)\]/g);
+                if (mm) mm.forEach(function (s) { steps.push(s.slice(1, -1)); });
+            });
+            fb.innerHTML = '<div class="fb-title">🔀 처리 순서</div>' + (steps.length ? steps.map(escapeText).join(' → ') : '<pre>' + escapeText(code) + '</pre>');
+            container.appendChild(fb);
+            return;
+        }
+        var box = document.createElement('div');
+        box.className = 'mermaid';
+        box.textContent = code;
+        container.appendChild(box);
+        try { await mermaid.run({ nodes: [box] }); }
+        catch (e) { box.innerHTML = '<span style="color:#b91c1c">⚠️ 도식 표시 오류</span>'; }
+    }
+
+    /* HTML 태그는 건너뛰고 글자만 한 자씩 출력 */
+    async function typeHtml(container, html, box, speed) {
+        var tokens = html.split(/(<[^>]+>)/);
+        var shown = '';
+        for (var i = 0; i < tokens.length; i++) {
+            var tk = tokens[i];
+            if (!tk) continue;
+            if (tk.charAt(0) === '<') { shown += tk; continue; }
+            for (var k = 0; k < tk.length; k += 3) {
+                shown += tk.slice(k, k + 3);
+                container.innerHTML = streamingView(shown);
+                if (box) box.scrollTop = box.scrollHeight;
+                await sleep(speed);
+            }
+        }
+    }
+    function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+    /* =========================================================
+       메시지 전송
+       ========================================================= */
+    var TYPE_SPEED = 6;
+    async function sendMsg(txt) {
+        var input = document.getElementById('user-msg');
+        var btn = document.querySelector('.btn-send');
+        if (input.disabled) return;
+        var text = (txt || input.value).trim();
+        if (!text) return;
+        input.disabled = true; btn.disabled = true;
+
+        var box = document.getElementById('chat-box');
+        var loader = document.getElementById('loader');
+        box.insertBefore(createBubble(escapeText(text), 'user'), loader);
+        input.value = '';
+        loader.style.display = 'block';
+        box.scrollTop = box.scrollHeight;
+
+        try {
+            await sleep(350);
+            var out = decide(text);
+            loader.style.display = 'none';
+            var row = createBubble('', 'bot');
+            box.insertBefore(row, loader);
+            var bubble = row.querySelector('.bubble');
+            var parts = out.html.split(/(<table[\s\S]*?<\/table>|<div class="src-box[\s\S]*$|<div class="nomatch[\s\S]*$)/);
+            /* 본문은 타이핑, 표와 근거 상자는 완성본으로 한 번에 */
+            var shown = '';
+            for (var i = 0; i < parts.length; i++) {
+                var p = parts[i]; if (!p) continue;
+                if (/^<table|^<div class="src-box|^<div class="nomatch/.test(p)) { shown += p; bubble.innerHTML = streamingView(shown); }
+                else { var start = shown; await typeHtml(bubble, p, box, TYPE_SPEED); shown = start + p; bubble.innerHTML = streamingView(shown); }
+                box.scrollTop = box.scrollHeight;
+            }
+            await renderRich(bubble, out.html);
+            bubble.setAttribute('data-type', out.type);
+        } catch (e) {
+            loader.style.display = 'none';
+            pushBotBubble('⚠️ <strong>일시적으로 답변을 만들지 못했어요.</strong><br>잠시 후 다시 시도해 주세요.');
+            console.error(e);
+        } finally {
+            input.disabled = false; btn.disabled = false;
+            box.scrollTop = box.scrollHeight;
+            input.focus();
+        }
+    }
+
+    function createBubble(text, type) {
+        var row = document.createElement('div');
+        row.className = 'msg-row ' + type;
+        var bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.innerHTML = text;
+        row.appendChild(bubble);
+        return row;
+    }
+
+    /* =========================================================
+       [데모] 담당자 화면 : 답 못 한 질문함 → 한두 줄 답 → 지식에 추가
+       ========================================================= */
+    var CUR_TAB = 'inbox';
+    var ROLES = ['총무 담당', '인사 담당', '회계 담당', '전산 담당'];
+    function switchScreen(showId, hideId) {
+        var hide = document.getElementById(hideId), show = document.getElementById(showId);
+        hide.style.opacity = '0';
+        setTimeout(function () { hide.style.display = 'none'; show.style.display = 'flex'; setTimeout(function () { show.style.opacity = '1'; }, 30); }, 250);
+    }
+    function openAdmin() { renderAdmin(); switchScreen('admin-view', 'chat-view'); }
+    function closeAdmin() { switchScreen('chat-view', 'admin-view'); setTimeout(syncChatPadding, 320); }
+    function showTab(t) {
+        CUR_TAB = t;
+        document.getElementById('tab-inbox').className = 'admin-tab' + (t === 'inbox' ? ' on' : '');
+        document.getElementById('tab-kb').className = 'admin-tab' + (t === 'kb' ? ' on' : '');
+        renderAdmin();
+    }
+    function roleFor(field) { var r = field + ' 담당'; return ROLES.indexOf(r) >= 0 ? r : ROLES[0]; }
+    var DRAFTS = {};   /* 다른 질문을 저장해도 쓰던 답이 지워지지 않게 */
+    function keepDrafts() {
+        Array.prototype.forEach.call(document.querySelectorAll('#admin-list textarea'), function (ta) { DRAFTS[ta.id] = ta.value; });
+        Array.prototype.forEach.call(document.querySelectorAll('#admin-list select'), function (se) { DRAFTS[se.id] = se.value; });
+    }
+    function restoreDrafts() {
+        Object.keys(DRAFTS).forEach(function (id) { var el = document.getElementById(id); if (el && DRAFTS[id]) el.value = DRAFTS[id]; });
+    }
+    function renderAdmin() {
+        refreshCounts();
+        keepDrafts();
+        var list = document.getElementById('admin-list');
+        if (CUR_TAB === 'inbox') {
+            var items = MEM.inbox.filter(function (x) { return !x.answered; }).slice().reverse();   /* 먼저 들어온 질문부터 */
+            var html = '<p class="admin-desc">챗봇이 규정에서 근거를 찾지 못한 질문입니다. 아는 내용을 <strong>한두 줄로</strong> 적어 주세요. 저장하면 지식에 추가되고, 같은 질문이나 비슷한 질문에 챗봇이 이 답을 씁니다.</p>';
+            if (!items.length) html += '<div class="empty">아직 답을 기다리는 질문이 없어요 🙌</div>';
+            items.forEach(function (x) {
+                html += '<div class="q-card" data-id="' + x.id + '"><div class="q-meta"><span class="tag wait">답 대기</span><span class="tag">추정 담당: ' + escapeText(x.field) + '</span><span>' + escapeText(x.t) + '</span></div>' +
+                    '<div class="q-text">Q. ' + escapeText(x.q) + '</div>' +
+                    '<div class="q-row"><textarea id="ans-' + x.id + '" placeholder="한두 줄로 답해 주세요 (예: 사내 메신저 회의실 메뉴에서 예약합니다)"></textarea>' +
+                    '<div class="q-side"><select id="role-' + x.id + '">' + ROLES.map(function (r) { return '<option' + (r === roleFor(x.field) ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>' +
+                    '<button class="btn-save" onclick="saveAnswer(\'' + x.id + '\')">저장하고 지식에 추가</button></div></div></div>';
+            });
+            list.innerHTML = html;
+            restoreDrafts();
+        } else {
+            var html2 = '<p class="admin-desc">담당자가 남긴 답입니다. 챗봇은 이 답을 쓸 때 <strong>"담당자 답 (역할, 날짜)"</strong>을 근거로 함께 보여 줍니다.</p>';
+            if (!MEM.kb.length) html2 += '<div class="empty">아직 쌓인 답이 없어요</div>';
+            MEM.kb.forEach(function (it) {
+                html2 += '<div class="q-card"><div class="q-meta"><span class="tag done">지식에 추가됨</span><span class="tag">' + escapeText(it.role) + '</span><span>' + escapeText(it.date) + '</span></div>' +
+                    '<div class="q-text">Q. ' + escapeText(it.q) + '</div><div class="kb-answer">' + escapeText(it.a).replace(/\n/g, '<br>') + '</div></div>';
+            });
+            list.innerHTML = html2;
+        }
+    }
+    function saveAnswer(id) {
+        var ta = document.getElementById('ans-' + id), sel = document.getElementById('role-' + id);
+        var a = (ta.value || '').trim();
+        if (!a) { toast('답을 한두 줄 적어 주세요'); ta.focus(); return; }
+        var item = MEM.inbox.filter(function (x) { return x.id === id; })[0];
+        if (!item) return;
+        item.answered = true;
+        delete DRAFTS['ans-' + id]; delete DRAFTS['role-' + id];
+        MEM.kb.unshift({ id: 'k' + Date.now(), q: item.q, a: a, role: sel.value, date: dateStr() });
+        save();
+        toast('✅ 지식에 추가했어요. 이제 챗봇이 이 답을 씁니다');
+        renderAdmin();
+    }
+    function toast(msg) {
+        var t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast show';
+        clearTimeout(t._h); t._h = setTimeout(function () { t.className = 'toast'; }, 2200);
+    }
+    function exportJson() {
+        var blob = new Blob([JSON.stringify({ exported: nowStr(), inbox: MEM.inbox, kb: MEM.kb }, null, 2)], { type: 'application/json' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = 'qa-knowledge.json'; a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    }
+    function importJson(inp) {
+        var f = inp.files && inp.files[0]; if (!f) return;
+        var r = new FileReader();
+        r.onload = function () {
+            try { var d = JSON.parse(r.result); MEM.inbox = d.inbox || []; MEM.kb = d.kb || []; save(); renderAdmin(); toast('불러왔어요'); }
+            catch (e) { toast('JSON 파일을 읽지 못했어요'); }
+            inp.value = '';
+        };
+        r.readAsText(f, 'utf-8');
+    }
+    function resetDemo() {
+        if (!window.confirm('질문함과 담당자 답을 모두 지울까요?')) return;
+        MEM.inbox = []; MEM.kb = []; save(); renderAdmin(); toast('초기화했어요');
+    }
+
+    window.addEventListener('load', function () { syncChatPadding(); refreshCounts(); });
+    </script>
+</body>
+</html>
